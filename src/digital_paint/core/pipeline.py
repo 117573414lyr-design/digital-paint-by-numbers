@@ -15,7 +15,8 @@ from digital_paint.core.palette_quality import (
 from digital_paint.core.performance import PerformanceReport, StageProfiler, recommended_sample_limit
 from digital_paint.core.qc import QCReport, run_qc
 from digital_paint.core.quantize import QuantizationResult, quantize_lab
-from digital_paint.core.regions import RegionResult, build_regions, merge_small_regions
+from digital_paint.core.regions import RegionResult, build_regions
+from digital_paint.core.segmentation_quality import merge_small_regions_structure_aware
 
 
 @dataclass(slots=True)
@@ -42,11 +43,7 @@ def build_production_result(
     min_region_area: int = 40,
     custom_palette: list[PaletteColor] | None = None,
 ) -> ProductionResult:
-    """Run the production pipeline with stage-level performance telemetry.
-
-    Since V21 the formal user-palette path uses CIEDE2000 and protects visually
-    sensitive cluster colors from unnecessary mapping collisions.
-    """
+    """Run the production pipeline with structure-aware region optimization."""
     profiler = StageProfiler(image_rgb)
     sample_limit = recommended_sample_limit(image_rgb, colors)
 
@@ -58,11 +55,13 @@ def build_production_result(
         sample_limit=sample_limit,
     )
     merged_color_id = profiler.run(
-        "merge_small_regions",
-        merge_small_regions,
+        "merge_structure_aware",
+        merge_small_regions_structure_aware,
         base.color_id,
         base.palette_rgb,
+        image_rgb,
         min_area=min_region_area,
+        hard_min_area=max(2, min(8, min_region_area)),
     )
     regions = profiler.run("build_regions", build_regions, merged_color_id)
 
