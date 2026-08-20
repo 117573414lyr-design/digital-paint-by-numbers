@@ -1,0 +1,42 @@
+name: Windows EXE Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/windows-v0.1
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - "digital-paint.spec"
+      - ".github/workflows/windows-build.yml"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,build]"
+      - name: Compile check
+        run: python -m compileall -q src tests
+      - name: Unit tests
+        run: pytest
+      - name: Build EXE
+        run: pyinstaller --clean --noconfirm digital-paint.spec
+      - name: Verify artifact
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist/DigitalPaintByNumbers/DigitalPaintByNumbers.exe")) { throw "EXE missing" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DigitalPaintByNumbers-Windows
+          path: dist/DigitalPaintByNumbers/
+          if-no-files-found: error
