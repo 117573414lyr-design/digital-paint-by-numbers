@@ -8,6 +8,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from skimage.measure import find_contours
 
+from digital_paint.core.boundaries import merge_collinear_segments, shared_boundary_segments
 from digital_paint.core.labels import LabelPlacement
 from digital_paint.core.regions import RegionInfo
 
@@ -16,7 +17,7 @@ LINE_WIDTH_PT = 0.1
 
 
 def region_contours(region_id: np.ndarray, region: RegionInfo, tolerance: float = 0.8) -> list[np.ndarray]:
-    """Extract closed region contours. Coordinates are returned as x/y floats."""
+    """Extract closed fill contours for a region as x/y float coordinates."""
     mask = (region_id == region.region_id).astype(np.uint8)
     raw = find_contours(mask, 0.5)
     result: list[np.ndarray] = []
@@ -24,7 +25,6 @@ def region_contours(region_id: np.ndarray, region: RegionInfo, tolerance: float 
         if len(contour) < 4:
             continue
         xy = np.column_stack((contour[:, 1], contour[:, 0])).astype(np.float64)
-        # Lightweight distance-based point reduction; keeps endpoints and avoids dense pixel stair-steps.
         kept = [xy[0]]
         for point in xy[1:]:
             if float(np.linalg.norm(point - kept[-1])) >= tolerance:
@@ -35,6 +35,10 @@ def region_contours(region_id: np.ndarray, region: RegionInfo, tolerance: float 
     return result
 
 
+def _shared_segments(region_id: np.ndarray) -> list[tuple[float, float, float, float]]:
+    return merge_collinear_segments(shared_boundary_segments(region_id))
+
+
 def export_line_svg(
     path: str | Path,
     region_id: np.ndarray,
@@ -42,15 +46,20 @@ def export_line_svg(
     labels: list[LabelPlacement],
     color_codes: dict[int, str] | None = None,
 ) -> None:
-    """Export editable SVG linework and text labels."""
+    """Export editable SVG with each shared boundary represented once."""
     h, w = region_id.shape
     root = Element("svg", xmlns="http://www.w3.org/2000/svg", width=str(w), height=str(h), viewBox=f"0 0 {w} {h}")
-    paths = SubElement(root, "g", id="boundaries", fill="none", stroke="#231815", **{"stroke-width": "0.1"})
-    # Region loops can overlap on shared borders in SVG V6; QC reports this as a vector-optimization candidate.
-    for region in regions:
-        for contour in region_contours(region_id, region):
-            points = " ".join(f"{x:.2f},{y:.2f}" for x, y in contour)
-            SubElement(paths, "polyline", points=points, fill="none")
+    paths = SubElement(
+        root,
+        "g",
+        id="shared-boundaries",
+        fill="none",
+        stroke="#231815",
+        **{"stroke-width": "0.1", "stroke-linecap": "round", "stroke-linejoin": "round"},
+    )
+    for x1, y1, x2, y2 in _shared_segments(region_id):
+        SubElement(paths, "line", x1=f"{x1:.2f}", y1=f"{y1:.2f}", x2=f"{x2:.2f}", y2=f"{y2:.2f}")
+
     label_group = SubElement(root, "g", id="labels", fill="#231815", **{"font-family": "Arial"})
     for item in labels:
         text = SubElement(
@@ -72,19 +81,15 @@ def export_vector_pdf(
     palette_rgb: np.ndarray,
     color_codes: dict[int, str] | None = None,
 ) -> None:
-    """Export a three-page PDF: effect, numbered linework, and palette.
-
-    Pages use vector polygons/text. The effect page is reconstructed from region paths rather than embedded as one raster page.
-    """
+    """Export three vector pages: effect, numbered linework, and palette."""
     h, w = region_id.shape
     c = canvas.Canvas(str(path), pagesize=(float(w), float(h)))
-
-    # Page 1: effect image reconstructed as filled vector regions.
     c.setTitle("Digital Paint by Numbers V6")
+
+    # Page 1: vector-filled effect regions.
     for region in regions:
         rgb = palette_rgb[region.color_id].astype(float) / 255.0
         c.setFillColorRGB(float(rgb[0]), float(rgb[1]), float(rgb[2]))
-        c.setStrokeColorRGB(float(rgb[0]), float(rgb[1]), float(rgb[2]))
         for contour in region_contours(region_id, region):
             p = c.beginPath()
             x0, y0 = contour[0]
@@ -95,19 +100,12 @@ def export_vector_pdf(
             c.drawPath(p, fill=1, stroke=0)
     c.showPage()
 
-    # Page 2: production linework.
+    # Page 2: topology-safe linework. Every internal shared edge is drawn once.
     c.setLineWidth(LINE_WIDTH_PT)
     c.setStrokeColorCMYK(*LINE_CMYK)
     c.setFillColorCMYK(*LINE_CMYK)
-    for region in regions:
-        for contour in region_contours(region_id, region):
-            p = c.beginPath()
-            x0, y0 = contour[0]
-            p.moveTo(float(x0), float(h - y0))
-            for x, y in contour[1:]:
-                p.lineTo(float(x), float(h - y))
-            p.close()
-            c.drawPath(p, fill=0, stroke=1)
+    for x1, y1, x2, y2 in _shared_segments(region_id):
+        c.line(float(x1), float(h - y1), float(x2), float(h - y2))
     for item in labels:
         code = color_codes.get(item.color_id, str(item.color_id + 1)) if color_codes else str(item.color_id + 1)
         c.setFont("Helvetica", item.font_pt)
