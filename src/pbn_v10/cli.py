@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from .exporters import export_effect, export_lineart_svg, export_manifest, export_palette, export_qa
+from .pdf_export import export_production_pdf
 from .pipeline import PaintByNumbersPipeline, V10Config
 
 
@@ -14,7 +15,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--colors", type=int, default=24)
     parser.add_argument("--min-region-area", type=int, default=120)
     parser.add_argument("--smooth-epsilon", type=float, default=1.2)
+    parser.add_argument("--smooth-iterations", type=int, default=2)
     parser.add_argument("--label-min-radius", type=float, default=5.0)
+    parser.add_argument("--color-library", type=Path, default=None, help="CSV: number,r,g,b")
     return parser
 
 
@@ -24,7 +27,9 @@ def main() -> None:
         colors=args.colors,
         min_region_area=args.min_region_area,
         smooth_epsilon=args.smooth_epsilon,
+        smooth_iterations=args.smooth_iterations,
         label_min_radius=args.label_min_radius,
+        color_library=args.color_library,
     )
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
@@ -33,6 +38,7 @@ def main() -> None:
     export_effect(result, out / "effect.png")
     export_lineart_svg(result, out / "lineart.svg", config)
     export_palette(result, out / "palette.csv")
+    export_production_pdf(result, out / "production.pdf", config)
     report = export_qa(result, out / "qa_report.json", config)
     export_manifest(out, args.image, config, report)
 
