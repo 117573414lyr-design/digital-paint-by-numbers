@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "digital-paint-by-numbers"
-version = "0.1.0"
+version = "0.6.0"
 description = "Windows desktop production tool for digital paint-by-numbers artwork"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,12 +14,17 @@ dependencies = [
   "Pillow>=10.4,<12",
   "scikit-learn>=1.5,<2",
   "scikit-image>=0.24,<1",
+  "scipy>=1.14,<2",
+  "reportlab>=4.2,<5",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3,<9",
   "pytest-qt>=4.4,<5",
+]
+build = [
+  "pyinstaller>=6.10,<7",
 ]
 
 [project.scripts]
