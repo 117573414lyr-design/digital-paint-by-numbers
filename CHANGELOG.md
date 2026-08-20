@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.0 - 2026-08-20
+
+### V8 and V100-foundation work
+
+- Added production geometry module with Douglas–Peucker simplification, curvature protection, area-error guard, self-intersection detection and geometry metrics.
+- Added cancellation token, disk-backed stage cache, conservative working-set estimator and tile-size planning for large images.
+- Added project persistence with compressed array storage, snapshots, restore and edit journal foundations.
+- Added SQLite reference/negative/correction/profile sample database for controlled learning workflows.
+- Added explicit V100 release gate so the application cannot be honestly marked production-ready without Windows EXE, offline launch, real-sample regression, vector PDF, QC, nonblocking GUI, large-image benchmark and palette verification.
+- Added deterministic 12MP/24MP/48MP performance benchmark harness.
+- Added Windows PyInstaller build specification and GitHub Actions EXE artifact workflow.
+- Added crash/environment diagnostic report utilities.
+- Added tests for geometry, task cancellation/cache, project snapshots, sample database and release-gate behavior.
+
+> V100 is not marked complete. The release gate deliberately remains dependent on external Windows and real-production verification.
+
 ## 0.6.0 - 2026-08-20
 
 ### V6 production integration
