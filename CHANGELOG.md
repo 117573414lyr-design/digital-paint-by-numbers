@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.20.0 - 2026-08-20
+
+### V9-V20 production linework milestone
+
+- Added topology-guarded closed-boundary smoothing using deterministic Chaikin passes.
+- Added Catmull-Rom-inspired cubic Bezier control generation with continuous shared endpoints.
+- Smoothing is accepted only when self-intersection count remains zero and area error stays within the configured production threshold.
+- Upgraded label placement from one deepest point to multiple distance-field candidates with centroid-aware scoring.
+- Added horizontal/vertical orientation selection for elongated regions while keeping label centers inside their own region IDs.
+- Extended label placement metadata with clearance and score for QC/debugging.
+- Added hard production-spec validators for 0.1 pt line width, CMYK 40/100/100/100 and 4.2/6/8 pt label sizes.
+- Added regression tests for topology-safe smoothing, Bezier continuity, elongated-region labels and production specification values.
+
+> V20 is the current verified code milestone. Visual regression against the user's approved mature AI files still requires those reference assets to be available to the automated test environment.
+
 ## 0.8.0 - 2026-08-20
 
 ### V8 and V100-foundation work
