@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.30.0 - 2026-08-21
+
+### V21-V30 palette and color-quality milestone
+
+- Replaced the formal user-palette matching path with CIEDE2000 color difference.
+- Added palette integrity validation for empty codes, duplicate formal color codes and duplicate RGB entries.
+- Added exact duplicate removal without silently collapsing different formal color codes.
+- Added conservative sensitive-color classification for dark accents, bright highlights and strongly chromatic colors.
+- Added anti-collision penalties so protected source colors are less likely to collapse onto the same formal color number.
+- Added palette quality reports with mapping collisions, missing source matches, maximum/mean color error and PASS/WARN/FAIL-ready issue records.
+- Integrated palette quality diagnostics into the production pipeline and stage performance telemetry.
+- Added automated regression tests for CIEDE2000 matching, duplicate detection, sensitive-color protection and collision/missing-match reporting.
+
+> V30 is the current verified code milestone. Semantic protection for eyes, mouths, text and other subject-specific structures remains a V31-V40 task and will be learned from approved designer reference files.
+
 ## 0.20.0 - 2026-08-20
 
 ### V9-V20 production linework milestone
@@ -13,13 +28,13 @@
 - Added hard production-spec validators for 0.1 pt line width, CMYK 40/100/100/100 and 4.2/6/8 pt label sizes.
 - Added regression tests for topology-safe smoothing, Bezier continuity, elongated-region labels and production specification values.
 
-> V20 is the current verified code milestone. Visual regression against the user's approved mature AI files still requires those reference assets to be available to the automated test environment.
+> V20 visual regression remains dependent on approved mature AI reference assets being available to the automated test environment.
 
 ## 0.8.0 - 2026-08-20
 
 ### V8 and V100-foundation work
 
-- Added production geometry module with Douglas–Peucker simplification, curvature protection, area-error guard, self-intersection detection and geometry metrics.
+- Added production geometry module with Douglas-Peucker simplification, curvature protection, area-error guard, self-intersection detection and geometry metrics.
 - Added cancellation token, disk-backed stage cache, conservative working-set estimator and tile-size planning for large images.
 - Added project persistence with compressed array storage, snapshots, restore and edit journal foundations.
 - Added SQLite reference/negative/correction/profile sample database for controlled learning workflows.
@@ -35,7 +50,7 @@
 
 ### V6 production integration
 
-- Unified CPU pipeline: quantize → regions → fragment merge → labels → optional custom palette → QC.
+- Unified CPU pipeline: quantize -> regions -> fragment merge -> labels -> optional custom palette -> QC.
 - V6 Windows UI with source/effect previews, minimum-region control, custom palette import and production exports.
 - PNG effect export, editable SVG linework, three-page vector PDF and JSON QC report.
 - Single-pass shared-boundary extraction so internal borders are emitted once instead of double-stroked.
