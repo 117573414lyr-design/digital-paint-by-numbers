@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.40.0 - 2026-08-21
+
+### V31-V40 high-quality segmentation milestone
+
+- Added normalized source-image edge-strength analysis for structure-aware region decisions.
+- Added per-region structure metrics: mean gradient, maximum gradient, edge fraction and protected-structure flag.
+- Replaced simple small-fragment merging in the main production pipeline with a joint score using shared-border ratio, CIEDE2000 color similarity, target-region area and structure importance.
+- Added a two-level production rule: impossible-to-number fragments below a hard minimum remain merge candidates, while edge-rich small regions above that floor can be preserved.
+- Added conservative protection for high-gradient details to reduce accidental loss of eyes, mouths, text strokes, flower centers and other visually important small structures.
+- Kept the merge operation topology-safe by recoloring complete connected regions and rebuilding stable region IDs afterward.
+- Added automated tests for edge-map normalization, structure classification, forced removal of single-pixel fragments and preservation of edge-rich small regions.
+
+> V40 is the current verified code milestone. The next phase focuses on production SVG/PDF layer organization, CMYK/output validation and stronger QC localization.
+
 ## 0.30.0 - 2026-08-21
 
 ### V21-V30 palette and color-quality milestone
@@ -13,7 +27,7 @@
 - Integrated palette quality diagnostics into the production pipeline and stage performance telemetry.
 - Added automated regression tests for CIEDE2000 matching, duplicate detection, sensitive-color protection and collision/missing-match reporting.
 
-> V30 is the current verified code milestone. Semantic protection for eyes, mouths, text and other subject-specific structures remains a V31-V40 task and will be learned from approved designer reference files.
+> V30 is the verified color-quality milestone. Semantic protection for eyes, mouths, text and subject-specific structures continues through V31-V40 and designer-reference regression.
 
 ## 0.20.0 - 2026-08-20
 
