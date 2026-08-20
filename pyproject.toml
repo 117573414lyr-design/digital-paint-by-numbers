@@ -1,0 +1,19 @@
+[project]
+name = "digital-paint-by-numbers"
+version = "10.0.0"
+description = "Production-oriented digital paint-by-numbers pipeline"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.0",
+  "Pillow>=10.4",
+  "opencv-python>=4.10",
+  "scipy>=1.14",
+  "svgwrite>=1.4",
+  "reportlab>=4.2",
+]
+
+[project.scripts]
+pbn-v10 = "pbn_v10.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
