@@ -125,8 +125,6 @@ def build_production_result(
     token.raise_if_cancelled()
     _emit(progress_callback, "分色完成", 24)
 
-    # Large canvases can contain thousands of tiny connected regions. More than
-    # three full structure-aware passes has poor interactive value at >=4 MP.
     merge_passes = 3 if megapixels >= 4.0 else 4 if megapixels >= 2.0 else 5
     merge_key = StageCache.key(
         "merge_structure_aware_v42",
@@ -201,6 +199,10 @@ def build_production_result(
     labels = profiler.run("place_labels", place_labels, regions.region_id, regions.regions)
     token.raise_if_cancelled()
 
+    def on_qc_progress(stage: str, percent: int) -> None:
+        mapped = 94 + int(max(0, min(100, percent)) * 0.05)
+        _emit(progress_callback, f"QC：{stage}", min(mapped, 99))
+
     _emit(progress_callback, "生产质检 QC", 94)
     qc = profiler.run(
         "run_qc",
@@ -209,9 +211,12 @@ def build_production_result(
         labels,
         min_area=min_region_area,
         palette_size=len(palette_rgb),
+        cancel_check=token.raise_if_cancelled,
+        progress_callback=on_qc_progress,
     )
     token.raise_if_cancelled()
 
+    _emit(progress_callback, "性能门禁", 99)
     performance_gate = evaluate_performance_gate(profiler.report, memory_plan)
     _emit(progress_callback, "完成", 100)
     return ProductionResult(
