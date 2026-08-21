@@ -28,13 +28,14 @@ from digital_paint.core.quantize import load_rgb_image, save_rgb_png
 from digital_paint.core.runtime import CancellationToken, PipelineCancelled
 from digital_paint.core.vector import export_line_svg, export_vector_pdf
 
-APP_LABEL = "V100 RC1"
+APP_LABEL = "V100 RC3 Speed"
 
 
 class WorkerSignals(QObject):
     finished = Signal(object)
     cancelled = Signal()
     error = Signal(str)
+    progress = Signal(str, int)
 
 
 class ProductionWorker(QRunnable):
@@ -69,6 +70,7 @@ class ProductionWorker(QRunnable):
                 cancellation=self.token,
                 cache_dir=self.cache_dir,
                 memory_budget_mb=self.memory_budget_mb,
+                progress_callback=lambda stage, percent: self.signals.progress.emit(stage, percent),
             )
         except PipelineCancelled:
             self.signals.cancelled.emit()
@@ -144,6 +146,7 @@ class MainWindow(QMainWindow):
         self.custom_palette: list[PaletteColor] | None = None
         self.active_token: CancellationToken | None = None
         self.cache_dir = Path.home() / ".digital_paint_by_numbers" / "cache"
+        self._last_progress_stage = ""
 
         self.open_button = QPushButton("导入原图")
         self.palette_button = QPushButton("导入自有色库 JSON")
@@ -175,7 +178,7 @@ class MainWindow(QMainWindow):
         self.log.setReadOnly(True)
         self.log.setMaximumHeight(210)
         self.progress = QProgressBar()
-        self.progress.setRange(0, 1)
+        self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.setFormat("就绪")
 
@@ -271,11 +274,13 @@ class MainWindow(QMainWindow):
             return
         self.active_token = CancellationToken()
         self._set_busy(True)
-        self.progress.setRange(0, 0)
-        self.progress.setFormat("处理中……")
+        self._last_progress_stage = ""
+        self.progress.setRange(0, 100)
+        self.progress.setValue(1)
+        self.progress.setFormat("准备处理 1%")
         self._log(f"开始 {APP_LABEL} 生产流水线……")
         worker = ProductionWorker(
-            self.source_image.copy(),
+            self.source_image,
             self.color_spin.value(),
             self.min_area_spin.value(),
             self.custom_palette,
@@ -286,7 +291,17 @@ class MainWindow(QMainWindow):
         worker.signals.finished.connect(self._processing_finished)
         worker.signals.cancelled.connect(self._processing_cancelled)
         worker.signals.error.connect(self._processing_failed)
+        worker.signals.progress.connect(self._processing_progress)
         self.thread_pool.start(worker)
+
+    @Slot(str, int)
+    def _processing_progress(self, stage: str, percent: int) -> None:
+        self.progress.setRange(0, 100)
+        self.progress.setValue(percent)
+        self.progress.setFormat(f"{stage}  {percent}%")
+        if stage != self._last_progress_stage:
+            self._last_progress_stage = stage
+            self._log(f"→ {stage} ({percent}%)")
 
     @Slot()
     def cancel_processing(self) -> None:
@@ -302,9 +317,9 @@ class MainWindow(QMainWindow):
         self.result_preview.set_array(result.effect_rgb)
         self._set_busy(False)
         self._set_result_actions(True)
-        self.progress.setRange(0, 1)
-        self.progress.setValue(1)
-        self.progress.setFormat("完成")
+        self.progress.setRange(0, 100)
+        self.progress.setValue(100)
+        self.progress.setFormat("完成 100%")
         counts = result.qc.counts()
         plan = result.memory_plan
         self._log(
@@ -325,7 +340,7 @@ class MainWindow(QMainWindow):
     def _processing_cancelled(self) -> None:
         self.active_token = None
         self._set_busy(False)
-        self.progress.setRange(0, 1)
+        self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.setFormat("已取消")
         self._log("处理已安全取消。")
@@ -334,7 +349,7 @@ class MainWindow(QMainWindow):
     def _processing_failed(self, message: str) -> None:
         self.active_token = None
         self._set_busy(False)
-        self.progress.setRange(0, 1)
+        self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.setFormat("失败")
         self._show_error(f"生产处理失败：{message}")
@@ -348,7 +363,7 @@ class MainWindow(QMainWindow):
     def export_png(self) -> None:
         if self.result is None:
             return
-        filename = self._save_name("效果图", "effect_v100_rc1.png", "PNG (*.png)", ".png")
+        filename = self._save_name("效果图", "effect_v100_rc3.png", "PNG (*.png)", ".png")
         if filename:
             save_rgb_png(self.result.effect_rgb, filename)
             self._log(f"已导出 PNG：{filename}")
@@ -357,7 +372,7 @@ class MainWindow(QMainWindow):
     def export_svg(self) -> None:
         if self.result is None:
             return
-        filename = self._save_name("编号线稿", "linework_v100_rc1.svg", "SVG (*.svg)", ".svg")
+        filename = self._save_name("编号线稿", "linework_v100_rc3.svg", "SVG (*.svg)", ".svg")
         if filename:
             export_line_svg(
                 filename,
@@ -372,7 +387,7 @@ class MainWindow(QMainWindow):
     def export_pdf(self) -> None:
         if self.result is None:
             return
-        filename = self._save_name("矢量 PDF", "production_v100_rc1.pdf", "PDF (*.pdf)", ".pdf")
+        filename = self._save_name("矢量 PDF", "production_v100_rc3.pdf", "PDF (*.pdf)", ".pdf")
         if filename:
             export_vector_pdf(
                 filename,
@@ -388,7 +403,7 @@ class MainWindow(QMainWindow):
     def export_qc(self) -> None:
         if self.result is None:
             return
-        filename = self._save_name("QC 报告", "qc_v100_rc1.json", "JSON (*.json)", ".json")
+        filename = self._save_name("QC 报告", "qc_v100_rc3.json", "JSON (*.json)", ".json")
         if filename:
             self.result.qc.save_json(filename)
             self._log(f"已导出 QC：{filename}")
