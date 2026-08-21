@@ -51,20 +51,37 @@ def analyze_region_structure(
     protect_mean_gradient: float = 0.20,
     protect_edge_fraction: float = 0.30,
 ) -> dict[int, RegionStructure]:
-    """Estimate whether each region likely carries visually important structure."""
+    """Vectorized structure statistics for all regions in one pass."""
     if region_id.shape != edge_strength.shape:
         raise ValueError("region_id and edge_strength must have matching shapes")
+    if not regions:
+        return {}
+
+    ids = region_id.ravel().astype(np.int64, copy=False)
+    values = edge_strength.ravel().astype(np.float64, copy=False)
+    max_id = int(ids.max(initial=-1))
+    if max_id < 0:
+        return {}
+
+    counts = np.bincount(ids, minlength=max_id + 1).astype(np.float64)
+    sums = np.bincount(ids, weights=values, minlength=max_id + 1)
+    edge_counts = np.bincount(ids, weights=(values >= edge_threshold), minlength=max_id + 1)
+
+    maxima = np.zeros(max_id + 1, dtype=np.float64)
+    np.maximum.at(maxima, ids, values)
+
+    means = np.divide(sums, counts, out=np.zeros_like(sums), where=counts > 0)
+    fractions = np.divide(edge_counts, counts, out=np.zeros_like(edge_counts), where=counts > 0)
+
     result: dict[int, RegionStructure] = {}
     for region in regions:
-        values = edge_strength[region_id == region.region_id]
-        if values.size == 0:
-            continue
-        mean_gradient = float(values.mean())
-        max_gradient = float(values.max(initial=0.0))
-        edge_fraction = float(np.mean(values >= edge_threshold))
+        rid = region.region_id
+        mean_gradient = float(means[rid])
+        max_gradient = float(maxima[rid])
+        edge_fraction = float(fractions[rid])
         protected = mean_gradient >= protect_mean_gradient or edge_fraction >= protect_edge_fraction
-        result[region.region_id] = RegionStructure(
-            region_id=region.region_id,
+        result[rid] = RegionStructure(
+            region_id=rid,
             mean_gradient=mean_gradient,
             max_gradient=max_gradient,
             edge_fraction=edge_fraction,
@@ -73,16 +90,42 @@ def analyze_region_structure(
     return result
 
 
+def _region_slice(region: RegionInfo, shape: tuple[int, int], padding: int = 1) -> tuple[slice, slice]:
+    minr, minc, maxr, maxc = region.bbox
+    h, w = shape
+    return (
+        slice(max(0, minr - padding), min(h, maxr + padding)),
+        slice(max(0, minc - padding), min(w, maxc + padding)),
+    )
+
+
 def _shared_border_counts(region_map: np.ndarray, region: RegionInfo, neighbours: set[int]) -> dict[int, int]:
+    """Count touching borders inside the region bounding box instead of rescanning the full image."""
     scores = {rid: 0 for rid in neighbours}
-    ys, xs = np.nonzero(region_map == region.region_id)
-    h, w = region_map.shape
-    for y, x in zip(ys, xs, strict=False):
-        for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-            if 0 <= ny < h and 0 <= nx < w:
-                rid = int(region_map[ny, nx])
-                if rid in scores:
-                    scores[rid] += 1
+    if not scores:
+        return scores
+    ys, xs = _region_slice(region, region_map.shape, padding=1)
+    local = region_map[ys, xs]
+    mask = local == region.region_id
+    if not np.any(mask):
+        return scores
+
+    # Compare the selected region with four shifted neighbours using array operations.
+    pairs = (
+        (mask[1:, :], local[:-1, :]),
+        (mask[:-1, :], local[1:, :]),
+        (mask[:, 1:], local[:, :-1]),
+        (mask[:, :-1], local[:, 1:]),
+    )
+    for src_mask, neighbour_values in pairs:
+        touched = neighbour_values[src_mask]
+        if touched.size == 0:
+            continue
+        ids, counts = np.unique(touched, return_counts=True)
+        for rid, count in zip(ids, counts, strict=False):
+            rid_i = int(rid)
+            if rid_i in scores:
+                scores[rid_i] += int(count)
     return scores
 
 
@@ -93,14 +136,14 @@ def merge_small_regions_structure_aware(
     *,
     min_area: int = 40,
     hard_min_area: int = 8,
-    max_passes: int = 8,
+    max_passes: int = 5,
     weights: MergeWeights = MergeWeights(),
 ) -> np.ndarray:
     """Merge fragments using color, adjacency and source-image structure.
 
-    Regions below ``hard_min_area`` remain merge candidates even when edge-rich,
-    because they are usually impossible to number. Between hard_min_area and
-    min_area, edge-rich regions are protected from automatic merging.
+    The implementation keeps the existing production scoring rules but avoids
+    repeated whole-canvas scans for every fragment, which is the dominant cost
+    on detailed images with many connected regions.
     """
     if min_area < 1 or hard_min_area < 1 or hard_min_area > min_area:
         raise ValueError("require 1 <= hard_min_area <= min_area")
@@ -146,7 +189,6 @@ def merge_small_regions_structure_aware(
                 if structure and structure.protected:
                     structure_penalty += structure.mean_gradient
                 if neighbour_structure and neighbour_structure.protected:
-                    # Prefer merging *into* stable structural regions, not across them.
                     area_bonus += 0.08
                 score = (
                     weights.shared_border * shared_ratio
@@ -158,7 +200,10 @@ def merge_small_regions_structure_aware(
 
             if ranked:
                 target_color = max(ranked, key=lambda item: item[0])[1]
-                work[rr.region_id == region.region_id] = target_color
+                ys, xs = _region_slice(region, work.shape, padding=0)
+                local_regions = rr.region_id[ys, xs]
+                local_work = work[ys, xs]
+                local_work[local_regions == region.region_id] = target_color
                 changed = True
         if not changed:
             break
