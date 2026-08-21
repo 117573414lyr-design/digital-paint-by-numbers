@@ -1,0 +1,37 @@
+name: Web V110 Check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/web-v110-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check docs/app.js
+          node --check docs/pdf.js
+      - name: Check required site files
+        run: |
+          test -f docs/index.html
+          test -f docs/styles.css
+          test -f docs/app.js
+          test -f docs/pdf.js
+          grep -q 'Production V110' docs/index.html
+          grep -q 'styles.css' docs/index.html
+          grep -q 'pdf.js' docs/index.html
+          grep -q 'app.js' docs/index.html
