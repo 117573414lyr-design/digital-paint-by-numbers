@@ -11,6 +11,15 @@ class PerformanceGateResult:
     status: str
     issues: tuple[str, ...]
 
+    @property
+    def passed(self) -> bool:
+        return self.status == "PASS"
+
+    @property
+    def reasons(self) -> tuple[str, ...]:
+        """Backward/GUI-friendly alias for issue messages."""
+        return self.issues
+
 
 def evaluate_performance_gate(
     report: PerformanceReport,
