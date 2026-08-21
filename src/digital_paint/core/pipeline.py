@@ -16,7 +16,7 @@ from digital_paint.core.palette_quality import (
 from digital_paint.core.performance import PerformanceReport, StageProfiler, recommended_sample_limit
 from digital_paint.core.performance_gate import PerformanceGateResult, evaluate_performance_gate
 from digital_paint.core.qc import QCReport, run_qc
-from digital_paint.core.quantize import QuantizationResult, quantize_lab
+from digital_paint.core.quantize import quantize_lab
 from digital_paint.core.regions import RegionResult, build_regions
 from digital_paint.core.runtime import (
     CancellationToken,
@@ -48,6 +48,42 @@ class ProductionResult:
         return self.regions.region_id
 
 
+def _load_or_quantize(
+    profiler: StageProfiler,
+    cache: StageCache | None,
+    image_rgb: np.ndarray,
+    colors: int,
+    sample_limit: int,
+    cache_hits: list[str],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return color IDs and palette, reusing deterministic quantization when possible."""
+    if cache is not None:
+        key = StageCache.key("quantize_lab_v3", image_rgb, int(colors), int(sample_limit))
+        color_key = f"{key}_color"
+        palette_key = f"{key}_palette"
+        cached_color = cache.load_array(color_key)
+        cached_palette = cache.load_array(palette_key)
+        if cached_color is not None and cached_palette is not None:
+            cache_hits.append("quantize_lab")
+            return cached_color.astype(np.int32, copy=False), cached_palette.astype(np.uint8, copy=False)
+    else:
+        color_key = palette_key = ""
+
+    base = profiler.run(
+        "quantize_lab",
+        quantize_lab,
+        image_rgb,
+        colors,
+        sample_limit=sample_limit,
+    )
+    color_id = base.color_id.astype(np.int32, copy=False)
+    palette_rgb = base.palette_rgb.astype(np.uint8, copy=False)
+    if cache is not None:
+        cache.save_array(color_key, color_id)
+        cache.save_array(palette_key, palette_rgb)
+    return color_id, palette_rgb
+
+
 def build_production_result(
     image_rgb: np.ndarray,
     colors: int,
@@ -58,7 +94,7 @@ def build_production_result(
     cache_dir: str | Path | None = None,
     memory_budget_mb: float = 2048.0,
 ) -> ProductionResult:
-    """Run production with cancellation, stage cache and memory/performance gates."""
+    """Run production with cancellation, multi-stage cache and performance gates."""
     token = cancellation or CancellationToken()
     token.raise_if_cancelled()
     profiler = StageProfiler(image_rgb)
@@ -68,26 +104,27 @@ def build_production_result(
     cache = StageCache(cache_dir) if cache_dir is not None else None
     cache_hits: list[str] = []
 
-    base: QuantizationResult = profiler.run(
-        "quantize_lab",
-        quantize_lab,
+    base_color_id, base_palette_rgb = _load_or_quantize(
+        profiler,
+        cache,
         image_rgb,
         colors,
-        sample_limit=sample_limit,
+        sample_limit,
+        cache_hits,
     )
     token.raise_if_cancelled()
 
     merge_key = StageCache.key(
-        "merge_structure_aware_v40",
-        base.color_id,
-        base.palette_rgb,
+        "merge_structure_aware_v41",
+        base_color_id,
+        base_palette_rgb,
         min_region_area,
     )
 
     def do_merge() -> np.ndarray:
         return merge_small_regions_structure_aware(
-            base.color_id,
-            base.palette_rgb,
+            base_color_id,
+            base_palette_rgb,
             image_rgb,
             min_area=min_region_area,
             hard_min_area=max(2, min(8, min_region_area)),
@@ -107,15 +144,15 @@ def build_production_result(
     regions = profiler.run("build_regions", build_regions, merged_color_id)
     token.raise_if_cancelled()
 
-    palette_rgb = base.palette_rgb.copy()
+    palette_rgb = base_palette_rgb.copy()
     matches: list[PaletteMatch] | None = None
     quality: PaletteQualityReport | None = None
     if custom_palette:
-        protected = profiler.run("classify_sensitive_colors", classify_sensitive_sources, base.palette_rgb)
+        protected = profiler.run("classify_sensitive_colors", classify_sensitive_sources, base_palette_rgb)
         matches = profiler.run(
             "match_palette_ciede2000",
             match_palette_ciede2000,
-            base.palette_rgb,
+            base_palette_rgb,
             custom_palette,
             protected_source_indices=protected,
         )
@@ -124,7 +161,7 @@ def build_production_result(
             palette_quality_report,
             custom_palette,
             matches,
-            len(base.palette_rgb),
+            len(base_palette_rgb),
         )
         effect_rgb = profiler.run("remap_image", remap_image, merged_color_id, matches)
         palette_rgb = np.asarray([m.rgb for m in matches], dtype=np.uint8)
