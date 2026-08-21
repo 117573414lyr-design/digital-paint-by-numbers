@@ -41,7 +41,6 @@ def _principal_rotation(mask: np.ndarray) -> float:
     vals, vecs = np.linalg.eigh(cov)
     major = vecs[:, int(np.argmax(vals))]
     angle = float(np.degrees(np.arctan2(major[1], major[0])))
-    # Keep production labels easy to read: only horizontal or vertical.
     normalized = ((angle + 180.0) % 180.0)
     return 90.0 if 45.0 <= normalized < 135.0 else 0.0
 
@@ -57,42 +56,71 @@ def _candidate_points(distance: np.ndarray, limit: int = 8) -> list[tuple[int, i
     return [(*np.unravel_index(int(i), distance.shape), float(flat[int(i)])) for i in ordered]
 
 
-def place_labels(region_id: np.ndarray, regions: list[RegionInfo]) -> list[LabelPlacement]:
-    """Place labels using multiple deep-interior candidates and elongated-region orientation.
+def _local_region_mask(
+    region_id: np.ndarray,
+    region: RegionInfo,
+    *,
+    padding: int = 1,
+) -> tuple[np.ndarray, int, int]:
+    """Return a padded local mask and its global origin.
 
-    Candidate scoring rewards boundary clearance and modestly rewards closeness to the
-    region centroid, improving visual balance without allowing labels to cross borders.
+    Distance transforms previously ran over the full canvas once per region. Using
+    each region's bounding box reduces the work dramatically on artworks with many
+    small/medium regions while preserving the same interior-distance semantics.
     """
+    min_row, min_col, max_row, max_col = region.bbox
+    h, w = region_id.shape
+    y0 = max(0, min_row - padding)
+    x0 = max(0, min_col - padding)
+    y1 = min(h, max_row + padding)
+    x1 = min(w, max_col + padding)
+    local = region_id[y0:y1, x0:x1] == region.region_id
+    # A zero border guarantees distance-to-background remains correct even when a
+    # region touches the image edge.
+    local = np.pad(local, 1, mode="constant", constant_values=False)
+    return local, y0 - 1, x0 - 1
+
+
+def place_labels(region_id: np.ndarray, regions: list[RegionInfo]) -> list[LabelPlacement]:
+    """Place labels with localized distance transforms and multiple candidates."""
     placements: list[LabelPlacement] = []
     for region in regions:
-        mask = region_id == region.region_id
-        if not np.any(mask):
+        local_mask, origin_y, origin_x = _local_region_mask(region_id, region)
+        if not np.any(local_mask):
             continue
-        distance = distance_transform_edt(mask)
-        ys, xs = np.nonzero(mask)
+
+        distance = distance_transform_edt(local_mask)
+        ys, xs = np.nonzero(local_mask)
         cx = float(xs.mean())
         cy = float(ys.mean())
         best: tuple[float, int, int, float] | None = None
-        diagonal = max(float(np.hypot(mask.shape[1], mask.shape[0])), 1.0)
+        diagonal = max(float(np.hypot(local_mask.shape[1], local_mask.shape[0])), 1.0)
+
         for y, x, clearance in _candidate_points(distance):
+            if not local_mask[y, x]:
+                continue
             centroid_penalty = float(np.hypot(float(x) - cx, float(y) - cy)) / diagonal
             score = clearance - 0.35 * centroid_penalty
             if best is None or score > best[0]:
                 best = (score, y, x, clearance)
+
         if best is None:
             continue
-        score, y, x, clearance = best
+
+        score, local_y, local_x, clearance = best
+        global_y = float(local_y + origin_y)
+        global_x = float(local_x + origin_x)
         pt = choose_font_pt(clearance)
         fits = clearance * 2.0 >= 5.0 * 1.333 * 1.35
         placements.append(
             LabelPlacement(
                 region_id=region.region_id,
                 color_id=region.color_id,
-                x=float(x),
-                y=float(y),
+                x=global_x,
+                y=global_y,
                 font_pt=pt,
                 fits=fits,
-                rotation_deg=_principal_rotation(mask),
+                rotation_deg=_principal_rotation(local_mask),
                 clearance_px=clearance,
                 score=float(score),
             )
