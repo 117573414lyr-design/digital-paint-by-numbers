@@ -5,8 +5,11 @@ from typing import Callable
 
 import numpy as np
 
-from digital_paint.core.labels import LabelPlacement
-from digital_paint.core.regions import build_regions
+from digital_paint.core.labels import LabelPlacement, place_labels
+from digital_paint.core.regions import RegionResult, build_regions
+
+
+BBox = tuple[int, int, int, int]
 
 
 @dataclass(slots=True)
@@ -14,7 +17,7 @@ class EditState:
     color_id: np.ndarray
     labels: list[LabelPlacement]
     revision: int = 0
-    dirty_bbox: tuple[int, int, int, int] | None = None
+    dirty_bbox: BBox | None = None
 
     def clone(self) -> "EditState":
         return EditState(
@@ -30,6 +33,13 @@ class EditRecord:
     name: str
     before: EditState
     after: EditState
+
+
+@dataclass(slots=True)
+class LocalRecomputeResult:
+    bbox: BBox
+    local_regions: RegionResult
+    local_labels: list[LabelPlacement]
 
 
 class EditSession:
@@ -74,7 +84,7 @@ class EditSession:
         return self.state
 
 
-def _bbox_from_mask(mask: np.ndarray, padding: int = 2) -> tuple[int, int, int, int] | None:
+def _bbox_from_mask(mask: np.ndarray, padding: int = 2) -> BBox | None:
     ys, xs = np.nonzero(mask)
     if len(xs) == 0:
         return None
@@ -85,6 +95,14 @@ def _bbox_from_mask(mask: np.ndarray, padding: int = 2) -> tuple[int, int, int, 
         min(h, int(ys.max()) + 1 + padding),
         min(w, int(xs.max()) + 1 + padding),
     )
+
+
+def expand_bbox(bbox: BBox, shape: tuple[int, int], padding: int = 8) -> BBox:
+    """Expand a dirty box so connected boundaries around the edit are included."""
+    y0, x0, y1, x1 = bbox
+    h, w = shape
+    p = max(0, int(padding))
+    return (max(0, y0 - p), max(0, x0 - p), min(h, y1 + p), min(w, x1 + p))
 
 
 def recolor_region(state: EditState, region_id: int, new_color_id: int) -> EditState:
@@ -153,9 +171,32 @@ def move_label(state: EditState, region_id: int, x: float, y: float) -> EditStat
     return state
 
 
-def crop_dirty(array: np.ndarray, bbox: tuple[int, int, int, int] | None) -> np.ndarray:
+def crop_dirty(array: np.ndarray, bbox: BBox | None) -> np.ndarray:
     """Return the dirty subarray for localized redraw/recompute paths."""
     if bbox is None:
         return array
     y0, x0, y1, x1 = bbox
     return array[y0:y1, x0:x1]
+
+
+def recompute_dirty(
+    color_id: np.ndarray,
+    bbox: BBox,
+    *,
+    padding: int = 8,
+) -> LocalRecomputeResult:
+    """Rebuild regions/labels only around an edited area.
+
+    Coordinates in the returned label list are translated back to full-canvas
+    coordinates so callers can replace only labels intersecting this box.
+    """
+    expanded = expand_bbox(bbox, color_id.shape, padding)
+    y0, x0, y1, x1 = expanded
+    local_color = color_id[y0:y1, x0:x1]
+    regions = build_regions(local_color)
+    labels = place_labels(regions.region_id, regions.regions)
+    translated = [
+        replace(item, x=item.x + x0, y=item.y + y0)
+        for item in labels
+    ]
+    return LocalRecomputeResult(expanded, regions, translated)
