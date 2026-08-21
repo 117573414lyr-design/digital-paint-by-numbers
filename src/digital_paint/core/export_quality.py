@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 
 from digital_paint.core.boundaries import merge_collinear_segments, shared_boundary_segments
-from digital_paint.core.production_spec import validate_production_spec
+from digital_paint.core.production_specs import validate_production_spec
 
 
 @dataclass(slots=True)
