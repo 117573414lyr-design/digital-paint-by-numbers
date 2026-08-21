@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.60.0 - 2026-08-21
+
+### V41-V60 vector production and located QC milestone
+
+- Added vector export-quality inspection for duplicate segments, true interior crossings and production-spec compliance.
+- Shared boundary segments are canonicalized so reversed duplicates are detected reliably.
+- Added editable SVG structure verification for shared-boundary and label layers, including confirmation that labels remain text objects.
+- Expanded QC records with issue coordinates so production problems can be located instead of reported only as totals.
+- Added located checks for unassigned pixels, tiny regions, labels that cannot fit, missing labels and label centers outside their own `region_id`.
+- Added production QC items for duplicate boundaries, crossing boundaries and the fixed 0.1 pt / CMYK 40,100,100,100 / 4.2,6,8 pt specification.
+- Preserved the single-pass shared-boundary model used by SVG and PDF linework so internal edges are emitted once.
+- Added automated regression tests for direction-independent duplicate detection, crossing detection, topology-safe shared edges and located QC output.
+
+> V60 is the current verified code milestone. PDF object-level inspection and clickable GUI navigation to QC locations remain follow-up integration work before V100 release gating can pass.
+
 ## 0.40.0 - 2026-08-21
 
 ### V31-V40 high-quality segmentation milestone
