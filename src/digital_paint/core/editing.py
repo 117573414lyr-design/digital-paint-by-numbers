@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from copy import deepcopy
+from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
@@ -19,7 +20,7 @@ class EditState:
     def clone(self) -> "EditState":
         return EditState(
             color_id=self.color_id.copy(),
-            labels=[LabelPlacement(**vars(item)) for item in self.labels],
+            labels=deepcopy(self.labels),
             revision=self.revision,
             dirty_bbox=self.dirty_bbox,
         )
@@ -101,13 +102,14 @@ def merge_regions(state: EditState, region_ids: list[int], target_color_id: int 
     if len(region_ids) < 2:
         raise ValueError("at least two region IDs are required")
     regions = build_regions(state.color_id)
-    selected = [r for r in regions.regions if r.region_id in set(region_ids)]
-    if len(selected) != len(set(region_ids)):
+    wanted = set(int(v) for v in region_ids)
+    selected = [r for r in regions.regions if r.region_id in wanted]
+    if len(selected) != len(wanted):
         raise ValueError("one or more region IDs are invalid")
     if target_color_id is None:
         selected.sort(key=lambda r: r.area, reverse=True)
         target_color_id = selected[0].color_id
-    mask = np.isin(regions.region_id, np.asarray(region_ids, dtype=np.int32))
+    mask = np.isin(regions.region_id, np.asarray(sorted(wanted), dtype=np.int32))
     state.color_id[mask] = int(target_color_id)
     state.dirty_bbox = _bbox_from_mask(mask)
     return state
@@ -124,7 +126,7 @@ def split_region_by_mask(
     regions = build_regions(state.color_id)
     region_mask = regions.region_id == int(region_id)
     selected = region_mask & split_mask.astype(bool)
-    if not np.any(selected) or np.all(selected == region_mask):
+    if not np.any(selected) or np.array_equal(selected, region_mask):
         raise ValueError("split mask must select a non-empty proper subset of the region")
     state.color_id[selected] = int(new_color_id)
     state.dirty_bbox = _bbox_from_mask(region_mask)
@@ -140,17 +142,18 @@ def move_label(state: EditState, region_id: int, x: float, y: float) -> EditStat
         raise ValueError("label position is outside the canvas")
     if int(regions.region_id[yi, xi]) != int(region_id):
         raise ValueError("label must remain inside its own region")
-    found = False
     for item in state.labels:
         if item.region_id == int(region_id):
             item.x = float(x)
             item.y = float(y)
-            found = True
-            break
-    if not found:
-        raise ValueError(f"label for region {region_id} not found")
-    state.dirty_bbox = (max(0, yi - 16), max(0, xi - 16), min(h, yi + 17), min(w, xi + 17))
-    return state
+            state.dirty_bbox = (
+                max(0, yi - 16),
+                max(0, xi - 16),
+                min(h, yi + 17),
+                min(w, xi + 17),
+            )
+            return state
+    raise ValueError(f"label for region {region_id} not found")
 
 
 def crop_dirty(array: np.ndarray, bbox: tuple[int, int, int, int] | None) -> np.ndarray:
