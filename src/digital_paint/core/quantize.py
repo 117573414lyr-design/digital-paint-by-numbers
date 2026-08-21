@@ -19,7 +19,7 @@ class QuantizationResult:
 
 
 def load_rgb_image(path: str | Path, max_side: int = 2200) -> np.ndarray:
-    """Load an image as uint8 RGB, reducing very large inputs for V0.1 stability."""
+    """Load an image as uint8 RGB, reducing very large inputs when requested."""
     image = Image.open(path).convert("RGB")
     if max(image.size) > max_side:
         image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
@@ -33,12 +33,11 @@ def quantize_lab(
     random_state: int = 42,
     sample_limit: int = 120_000,
 ) -> QuantizationResult:
-    """Quantize an RGB image in CIE Lab space using KMeans.
+    """Quantize an RGB image in CIE Lab space using deterministic KMeans.
 
-    V0.1 deliberately keeps one pixel-level label map. `region_id` currently
-    mirrors a stable per-pixel index placeholder, while `color_id` stores the
-    quantized palette assignment. Later versions will replace region_id with
-    connected-component region IDs without breaking the result contract.
+    The production path fits on a bounded representative sample and predicts all
+    pixels. A fixed random state plus one k-means++ initialization removes the
+    previous five redundant full restarts while keeping deterministic output.
     """
     if image_rgb.ndim != 3 or image_rgb.shape[2] != 3:
         raise ValueError("image_rgb must have shape (H, W, 3)")
@@ -56,11 +55,18 @@ def quantize_lab(
     else:
         fit_pixels = pixels
 
+    # Guard tiny or nearly-flat images without asking sklearn for impossible clusters.
+    unique_count = len(np.unique(fit_pixels, axis=0))
+    effective_colors = min(int(colors), int(unique_count))
+    if effective_colors < 2:
+        effective_colors = 1
+
     model = KMeans(
-        n_clusters=colors,
+        n_clusters=effective_colors,
         random_state=random_state,
-        n_init=5,
-        max_iter=250,
+        n_init=1,
+        max_iter=160,
+        tol=1e-3,
         algorithm="lloyd",
     )
     model.fit(fit_pixels)
