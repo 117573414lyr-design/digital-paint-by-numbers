@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
-from PySide6.QtGui import QImage, QPixmap, QWheelEvent
+from PySide6.QtGui import QBrush, QColor, QImage, QPixmap, QWheelEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsPixmapItem,
@@ -84,16 +84,16 @@ class ZoomableImageView(QGraphicsView):
 
     def __init__(self, placeholder: str) -> None:
         super().__init__()
-        self.scene = QGraphicsScene(self)
-        self.setScene(self.scene)
+        self._scene = QGraphicsScene(self)
+        self.setScene(self._scene)
         self.pixmap_item = QGraphicsPixmapItem()
-        self.scene.addItem(self.pixmap_item)
+        self._scene.addItem(self.pixmap_item)
         self.placeholder = placeholder
         self.setMinimumSize(420, 420)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
-        self.setBackgroundBrush(Qt.GlobalColor.black)
+        self.setBackgroundBrush(QBrush(QColor(0, 0, 0)))
         self._has_image = False
 
     def set_array(self, image_rgb: np.ndarray) -> None:
@@ -101,13 +101,13 @@ class ZoomableImageView(QGraphicsView):
         h, w, _ = array.shape
         qimage = QImage(array.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
         self.pixmap_item.setPixmap(QPixmap.fromImage(qimage))
-        self.scene.setSceneRect(self.pixmap_item.boundingRect())
+        self._scene.setSceneRect(self.pixmap_item.boundingRect())
         self._has_image = True
         self.fit_image()
 
     def clear_image(self) -> None:
         self.pixmap_item.setPixmap(QPixmap())
-        self.scene.setSceneRect(0, 0, 1, 1)
+        self._scene.setSceneRect(0, 0, 1, 1)
         self._has_image = False
 
     def fit_image(self) -> None:
@@ -117,7 +117,8 @@ class ZoomableImageView(QGraphicsView):
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
         if not self._has_image:
-            return super().wheelEvent(event)
+            super().wheelEvent(event)
+            return
         factor = 1.20 if event.angleDelta().y() > 0 else 1 / 1.20
         current = self.transform().m11()
         target = current * factor
