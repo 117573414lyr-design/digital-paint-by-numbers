@@ -14,6 +14,7 @@ from digital_paint.core.palette_quality import (
     palette_quality_report,
 )
 from digital_paint.core.performance import PerformanceReport, StageProfiler, recommended_sample_limit
+from digital_paint.core.performance_gate import PerformanceGateResult, evaluate_performance_gate
 from digital_paint.core.qc import QCReport, run_qc
 from digital_paint.core.quantize import QuantizationResult, quantize_lab
 from digital_paint.core.regions import RegionResult, build_regions
@@ -38,6 +39,7 @@ class ProductionResult:
     palette_quality: PaletteQualityReport | None
     qc: QCReport
     performance: PerformanceReport
+    performance_gate: PerformanceGateResult
     memory_plan: MemoryPlan
     cache_hits: list[str]
 
@@ -56,7 +58,7 @@ def build_production_result(
     cache_dir: str | Path | None = None,
     memory_budget_mb: float = 2048.0,
 ) -> ProductionResult:
-    """Run production with cancellation, deterministic stage cache and memory planning."""
+    """Run production with cancellation, stage cache and memory/performance gates."""
     token = cancellation or CancellationToken()
     token.raise_if_cancelled()
     profiler = StageProfiler(image_rgb)
@@ -142,6 +144,7 @@ def build_production_result(
     )
     token.raise_if_cancelled()
 
+    performance_gate = evaluate_performance_gate(profiler.report, memory_plan)
     return ProductionResult(
         effect_rgb=effect_rgb,
         palette_rgb=palette_rgb,
@@ -152,6 +155,7 @@ def build_production_result(
         palette_quality=quality,
         qc=qc,
         performance=profiler.report,
+        performance_gate=performance_gate,
         memory_plan=memory_plan,
         cache_hits=cache_hits,
     )
