@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 import json
+import os
 import threading
 from typing import Any, Callable, TypeVar
 
 import numpy as np
 
 T = TypeVar("T")
+R = TypeVar("R")
 
 
 class PipelineCancelled(RuntimeError):
@@ -38,6 +41,10 @@ class Tile:
     y1: int
     x0: int
     x1: int
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (self.y1 - self.y0, self.x1 - self.x0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +76,39 @@ def iter_tiles(shape: tuple[int, int], tile_size: int, *, overlap: int = 8) -> l
         for x0 in range(0, w, step):
             tiles.append(Tile(y0, min(h, y0 + tile_size), x0, min(w, x0 + tile_size)))
     return tiles
+
+
+def recommended_workers(limit: int = 8) -> int:
+    """Return a conservative worker count for CPU-heavy local analysis."""
+    cpu = os.cpu_count() or 1
+    return max(1, min(int(limit), max(1, cpu - 1)))
+
+
+def parallel_map_tiles(
+    tiles: list[Tile],
+    func: Callable[[Tile], R],
+    *,
+    cancellation: CancellationToken | None = None,
+    max_workers: int | None = None,
+) -> list[R]:
+    """Execute independent tile work in parallel while preserving tile order.
+
+    This helper is intended for read-only/local analysis stages. Operations that
+    mutate shared arrays must return local results and merge them afterwards.
+    """
+    if not tiles:
+        return []
+    token = cancellation or CancellationToken()
+    workers = max_workers or recommended_workers()
+
+    def wrapped(tile: Tile) -> R:
+        token.raise_if_cancelled()
+        result = func(tile)
+        token.raise_if_cancelled()
+        return result
+
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="paint-tile") as pool:
+        return list(pool.map(wrapped, tiles))
 
 
 class StageCache:
