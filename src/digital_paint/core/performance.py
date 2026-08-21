@@ -54,17 +54,22 @@ class StageProfiler:
 
 
 def recommended_sample_limit(image_rgb: np.ndarray, colors: int) -> int:
-    """Choose a bounded KMeans fit sample size without scaling linearly with image size."""
+    """Choose a bounded KMeans sample tuned for interactive production use.
+
+    The previous ceiling could reach 180k samples. With deterministic k-means++
+    and only three Lab dimensions, 24k-100k representative pixels are sufficient
+    for the normal 12/24/36/50-color workflows while cutting fit time materially.
+    Full-resolution prediction is still performed after fitting, so output geometry
+    is not created from a downscaled image.
+    """
     pixels = int(image_rgb.shape[0] * image_rgb.shape[1])
-    # Enough samples to represent each cluster while preventing huge images from exploding fit cost.
-    target = max(30_000, colors * 3_000)
-    return min(pixels, min(target, 180_000))
+    target = max(24_000, int(colors) * 1_800)
+    return min(pixels, min(target, 100_000))
 
 
 def estimated_working_set_mb(image_rgb: np.ndarray) -> float:
     """Conservative working-set estimate for RGB + Lab + label/region arrays."""
     pixels = int(image_rgb.shape[0] * image_rgb.shape[1])
-    # RGB uint8 3B + Lab float32 12B + several int32 maps and temporary buffers.
     return pixels * 40 / (1024 * 1024)
 
 
