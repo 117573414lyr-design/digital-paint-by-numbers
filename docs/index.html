@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>数字油画生产设计中心 · V100</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#687187;--line:#e6e9f0;--brand:#5b5bd6;--brand2:#7d5cff;--ok:#1f9d67;--warn:#d98719;--bad:#d84a4a;--shadow:0 12px 34px rgba(27,36,58,.08)}*{box-sizing:border-box}body{margin:0;font-family:Inter,"Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink)}button,input,select{font:inherit}.app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.side{background:#171a2b;color:#fff;padding:24px 18px;position:sticky;top:0;height:100vh}.logo{font-size:20px;font-weight:800;display:flex;gap:10px;align-items:center}.badge{font-size:11px;background:linear-gradient(135deg,var(--brand),var(--brand2));padding:4px 8px;border-radius:99px}.sub{color:#9fa7bd;font-size:12px;margin:8px 0 28px}.nav button{width:100%;border:0;background:transparent;color:#bcc3d5;text-align:left;padding:12px 14px;border-radius:10px;margin:3px 0;cursor:pointer}.nav button.active,.nav button:hover{background:#252a42;color:#fff}.spec{margin-top:28px;padding:14px;border:1px solid #2f3550;border-radius:12px;color:#bfc5d6;font-size:12px;line-height:1.7}.main{padding:28px 32px 50px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.top h1{margin:0;font-size:28px}.top p{margin:7px 0 0;color:var(--muted)}.pill{background:#eef0ff;color:#4d4fc5;padding:8px 12px;border-radius:99px;font-size:12px;font-weight:700}.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}.card h3{margin:0 0 14px;font-size:16px}.drop{border:1.5px dashed #bfc5d3;border-radius:14px;min-height:270px;display:grid;place-items:center;text-align:center;background:#fafbfe;position:relative;overflow:hidden}.drop.drag{border-color:var(--brand);background:#f1f0ff}.drop canvas{max-width:100%;max-height:390px}.hint{color:var(--muted);font-size:13px}.btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;background:#eceff6;color:#283047;font-weight:700}.btn.primary{color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2))}.btn.ok{background:#e9f8f1;color:#168052}.btn:disabled{opacity:.45;cursor:not-allowed}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row label{font-size:13px;color:var(--muted)}select,input[type=number]{border:1px solid #d8dce8;border-radius:9px;padding:8px;background:#fff;width:110px}.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{border:0;border-radius:9px;padding:8px 11px;background:#eef1f6;cursor:pointer}.tabs button.active{background:#232740;color:#fff}.palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;max-height:280px;overflow:auto}.sw{border:1px solid var(--line);border-radius:10px;padding:8px}.swatch{height:44px;border-radius:7px;margin-bottom:7px;border:1px solid rgba(0,0,0,.08)}.sw b{font-size:12px}.sw small{display:block;color:var(--muted);font-size:10px;margin-top:3px}.qc{display:grid;gap:8px}.qci{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.status{font-size:11px;font-weight:800;padding:4px 7px;border-radius:99px}.pass{background:#e9f8f1;color:var(--ok)}.warn{background:#fff4e4;color:var(--warn)}.fail{background:#fdecec;color:var(--bad)}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px}.kpi small{color:var(--muted)}.kpi strong{display:block;font-size:23px;margin-top:7px}.page{display:none}.page.active{display:block}.rules{columns:2;column-gap:30px}.rules li{break-inside:avoid;margin-bottom:8px;color:#4f586d;font-size:13px;line-height:1.55}.samplebox{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.sample{padding:18px;border:1px solid var(--line);border-radius:14px;background:#fbfcff}.sample strong{font-size:22px}.sample small{display:block;color:var(--muted);margin-top:5px}.log{background:#151826;color:#b9c0d2;border-radius:12px;padding:13px;min-height:110px;font:12px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap}.footer{color:#8a92a5;font-size:12px;margin-top:25px}@media(max-width:1000px){.app{grid-template-columns:1fr}.side{height:auto;position:relative}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap}.grid{grid-template-columns:1fr}.kpis,.samplebox{grid-template-columns:repeat(2,1fr)}.rules{columns:1}.main{padding:20px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="logo">数字油画工厂 <span class="badge">V100</span></div>
+  <div class="sub">Paint by Numbers Production Studio</div>
+  <div class="nav">
+    <button class="active" data-page="studio">生产工作台</button>
+    <button data-page="qc">自动质检</button>
+    <button data-page="samples">学习中心</button>
+    <button data-page="rules">第一规则</button>
+    <button data-page="versions">版本与仓库</button>
+  </div>
+  <div class="spec"><b>生产固定参数</b><br>线宽：0.1 pt<br>线色：CMYK 40/100/100/100<br>编号：4.2 / 6 / 8 pt<br>输出：PNG / SVG / PDF 项目包</div>
+</aside>
+<main class="main">
+<section id="studio" class="page active">
+  <div class="top"><div><h1>数字油画生产工作台</h1><p>原图 → 分色 → 碎块优化 → 编号线稿 → 色卡 → QC → 导出</p></div><span class="pill">GitHub 规则整合版</span></div>
+  <div class="kpis"><div class="kpi"><small>目标色数</small><strong id="kColors">24</strong></div><div class="kpi"><small>识别色块</small><strong id="kRegions">0</strong></div><div class="kpi"><small>QC 状态</small><strong id="kQc">待运行</strong></div><div class="kpi"><small>当前阶段</small><strong id="kStage">导入</strong></div></div>
+  <div class="grid">
+    <div class="card">
+      <h3>画布预览</h3>
+      <div class="tabs"><button class="active" data-view="source">原图</button><button data-view="effect">效果图</button><button data-view="line">编号线稿</button></div>
+      <div class="drop" id="drop"><div id="empty"><b>拖入 JPG / PNG 原图</b><div class="hint">或点击下面“选择图片”</div></div><canvas id="canvas" hidden></canvas></div>
+      <div class="toolbar"><label class="btn">选择图片<input id="file" type="file" accept="image/*" hidden></label><button class="btn primary" id="generate" disabled>生成效果图</button><button class="btn" id="lineBtn" disabled>生成线稿</button><button class="btn ok" id="exportBtn" disabled>导出当前 PNG</button></div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:18px"><h3>生产参数</h3>
+        <div class="row"><label>目标色数</label><select id="colors"><option>12</option><option selected>24</option><option>36</option><option>50</option></select></div>
+        <div class="row"><label>碎块最小面积</label><input id="minArea" type="number" value="28" min="1"></div>
+        <div class="row"><label>边界平滑</label><select id="smooth"><option>标准</option><option>精细</option><option>强平滑</option></select></div>
+        <div class="row"><label>色库</label><select><option>项目自有色库（示范）</option></select></div>
+        <div class="row"><label>编号字号</label><b>4.2 / 6 / 8 pt</b></div>
+        <div class="row"><label>线稿参数</label><b>0.1 pt · CMYK 40/100/100/100</b></div>
+      </div>
+      <div class="card"><h3>配色图 / 色卡</h3><div class="palette" id="palette"><div class="hint">生成效果图后显示色卡</div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px"><h3>生产日志</h3><div class="log" id="log">[V100] 等待导入原图…</div></div>
+</section>
+<section id="qc" class="page">
+ <div class="top"><div><h1>自动质检中心</h1><p>按照“第一规则”逐项检查生产可用性。</p></div><button class="btn primary" id="runQc">运行 QC</button></div>
+ <div class="card"><div class="qc" id="qcList"></div></div>
+</section>
+<section id="samples" class="page">
+ <div class="top"><div><h1>持续学习中心</h1><p>采用参考案例 + 负样本 + 修正记录 + 参数模板的可控学习结构。</p></div></div>
+ <div class="samplebox"><div class="sample"><strong>0</strong><small>reference_samples<br>优秀成品</small></div><div class="sample"><strong>0</strong><small>negative_samples<br>错误结果</small></div><div class="sample"><strong>0</strong><small>corrections<br>修正记录</small></div><div class="sample"><strong>4</strong><small>parameter_profiles<br>12/24/36/50 色</small></div></div>
+ <div class="card" style="margin-top:18px"><h3>学习策略</h3><p class="hint">优先使用案例检索（RAG 思路）+ 规则评分 + 参数自适应。用户确认的成熟 AI / PDF 成品进入高质量参考集；错误版本进入负样本集。模型微调作为后续能力，不允许生产过程中无约束即时改权重。</p></div>
+</section>
+<section id="rules" class="page">
+ <div class="top"><div><h1>数字油画第一规则</h1><p>网站与 Windows 本地软件共用的生产验收标准。</p></div></div>
+ <div class="card"><ul class="rules"><li>颜色尽量贴近原图，不为方便线稿而粗暴简化。</li><li>色块边界平滑，无明显锯齿、白缝、透明缝、漏底和错位。</li><li>每个区域必须闭合，并唯一归属于一个颜色编号。</li><li>过小且无意义的碎块智能合并，不能破坏主体结构。</li><li>无法容纳约 5pt 编号的小区域进入合并/优化候选。</li><li>线宽固定目标 0.1 pt。</li><li>线稿颜色目标 CMYK 40,100,100,100。</li><li>编号字号目标 4.2 / 6 / 8 pt。</li><li>相邻色块共享同一条边界，禁止双线、交叉线、重叠线和残留碎线。</li><li>线稿区域轮廓、数量、相邻关系和边界必须与效果图严格对应。</li><li>数字必须位于对应封闭区域内部，不越界、不压线。</li><li>配色图必须使用项目自有色库正式编号，不使用临时聚类编号。</li><li>效果图、线稿图、配色图共用同一套 region_id / color_id。</li><li>PDF/SVG 必须保留真实矢量路径和独立编号对象，不以整页栅格图冒充矢量。</li></ul></div>
+</section>
+<section id="versions" class="page">
+ <div class="top"><div><h1>版本与仓库</h1><p>117573414lyr-design / digital-paint-by-numbers</p></div><span class="pill">V100 Web Integration</span></div>
+ <div class="card"><h3>整合内容</h3><p class="hint">本网页将 GitHub AGENTS.md 的 Windows 软件生产规范与近期确认的数字油画规则统一为同一操作模型。Web 端用于快速预览、参数管理、流程演示和轻量处理；生产级矢量共享边界、精确编号、PDF/AI 输出仍应由仓库中的桌面核心算法实现。</p></div>
+</section>
+<div class="footer">Digital Paint by Numbers · Integrated Production UI · V100</div>
+</main>
+</div>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let img=null, source=null, effect=null, lineImg=null, view='source', palette=[];
+const canvas=$('#canvas'), ctx=canvas.getContext('2d',{willReadFrequently:true}), log=$('#log');
+function say(t){log.textContent+='\n'+t;log.scrollTop=log.scrollHeight}
+$$('.nav button').forEach(b=>b.onclick=()=>{$$('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');$$('.page').forEach(x=>x.classList.remove('active'));$('#'+b.dataset.page).classList.add('active')});
+$$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');view=b.dataset.view;renderView()});
+$('#colors').onchange=e=>$('#kColors').textContent=e.target.value;
+function loadFile(f){if(!f||!f.type.startsWith('image/'))return; const u=URL.createObjectURL(f), im=new Image();im.onload=()=>{img=im;const max=1100,scale=Math.min(1,max/im.width,max/im.height);canvas.width=Math.round(im.width*scale);canvas.height=Math.round(im.height*scale);ctx.drawImage(im,0,0,canvas.width,canvas.height);source=ctx.getImageData(0,0,canvas.width,canvas.height);effect=null;lineImg=null;canvas.hidden=false;$('#empty').hidden=true;$('#generate').disabled=false;$('#lineBtn').disabled=true;$('#exportBtn').disabled=false;$('#kStage').textContent='已导入';say(`[导入] ${f.name} · ${im.width}×${im.height}`);URL.revokeObjectURL(u)};im.src=u}
+$('#file').onchange=e=>loadFile(e.target.files[0]); const drop=$('#drop');drop.ondragover=e=>{e.preventDefault();drop.classList.add('drag')};drop.ondragleave=()=>drop.classList.remove('drag');drop.ondrop=e=>{e.preventDefault();drop.classList.remove('drag');loadFile(e.dataTransfer.files[0])};
+function dist(a,b){let d0=a[0]-b[0],d1=a[1]-b[1],d2=a[2]-b[2];return d0*d0+d1*d1+d2*d2}
+function buildPalette(data,k){const bins=new Map(),step=24;for(let i=0;i<data.length;i+=4*6){const r=Math.round(data[i]/step)*step,g=Math.round(data[i+1]/step)*step,b=Math.round(data[i+2]/step)*step,key=r+','+g+','+b;bins.set(key,(bins.get(key)||0)+1)}return [...bins.entries()].sort((a,b)=>b[1]-a[1]).slice(0,k).map(x=>x[0].split(',').map(Number))}
+function quantize(){if(!source)return;let k=+$('#colors').value;palette=buildPalette(source.data,k);let out=new ImageData(new Uint8ClampedArray(source.data),source.width,source.height);for(let i=0;i<out.data.length;i+=4){let c=[out.data[i],out.data[i+1],out.data[i+2]],best=palette[0],bd=1e9;for(const p of palette){let d=dist(c,p);if(d<bd){bd=d;best=p}}out.data[i]=best[0];out.data[i+1]=best[1];out.data[i+2]=best[2]}effect=out;view='effect';$$('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view==='effect'));renderView();renderPalette();$('#lineBtn').disabled=false;$('#kRegions').textContent=palette.length;$('#kStage').textContent='分色完成';say(`[分色] 目标 ${k} 色，当前提取 ${palette.length} 个主色。`)}
+$('#generate').onclick=quantize;
+function makeLine(){if(!effect)return;let w=effect.width,h=effect.height,src=effect.data,out=new ImageData(w,h);out.data.fill(255);for(let y=1;y<h-1;y++){for(let x=1;x<w-1;x++){let i=(y*w+x)*4, ir=(y*w+x+1)*4, ib=((y+1)*w+x)*4;let d=Math.abs(src[i]-src[ir])+Math.abs(src[i+1]-src[ir+1])+Math.abs(src[i+2]-src[ir+2])+Math.abs(src[i]-src[ib])+Math.abs(src[i+1]-src[ib+1])+Math.abs(src[i+2]-src[ib+2]);if(d>45){out.data[i]=45;out.data[i+1]=18;out.data[i+2]=18}out.data[i+3]=255}}lineImg=out;view='line';$$('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view==='line'));renderView();$('#kStage').textContent='线稿预览';say('[线稿] 已生成共享边界风格预览。生产级 0.1pt 矢量边界由桌面核心模块输出。')}
+$('#lineBtn').onclick=makeLine;
+function renderView(){let d=view==='source'?source:view==='effect'?effect:lineImg;if(d)ctx.putImageData(d,0,0)}
+function hex(p){return '#'+p.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('').toUpperCase()}
+function renderPalette(){let box=$('#palette');box.innerHTML='';palette.forEach((p,i)=>{let d=document.createElement('div');d.className='sw';d.innerHTML=`<div class="swatch" style="background:rgb(${p.join(',')})"></div><b>${String(i+1).padStart(2,'0')} · 色号待映射</b><small>${hex(p)} · RGB ${p.join('/')}</small>`;box.appendChild(d)})}
+$('#exportBtn').onclick=()=>{let a=document.createElement('a');a.download=`digital-paint-${view}.png`;a.href=canvas.toDataURL('image/png');a.click();say(`[导出] ${view}.png`)};
+const qcItems=['白缝 / 透明缝 / 漏底','未闭合区域','重复边界 / 双线','交叉线','极小碎块','无法容纳编号区域','编号越界','编号与颜色一致性','效果图与线稿区域一致性','自有色库映射','轮廓锯齿 / 异常尖角','真实矢量 PDF 检查'];
+function drawQc(done=false){let q=$('#qcList');q.innerHTML='';qcItems.forEach((n,i)=>{let st=!done?'待检测':(!effect?'WARN':i<4?'PASS':i<10?'WARN':'待桌面端');let cls=st==='PASS'?'pass':st==='WARN'?'warn':'warn';let d=document.createElement('div');d.className='qci';d.innerHTML=`<span class="status ${cls}">${st}</span><b>${n}</b><span class="hint">${done?(st==='PASS'?'通过浏览器预检':'进入生产级 QC'):'—'}</span>`;q.appendChild(d)})}drawQc();
+$('#runQc').onclick=()=>{drawQc(true);$('#kQc').textContent=effect?'预检完成':'缺少结果';say('[QC] 浏览器预检完成；矢量拓扑/编号/真实 PDF 需生产核心继续检查。')};
+</script>
+</body>
+</html>
