@@ -24,7 +24,13 @@ class RegionResult:
 
 
 def build_regions(color_id: np.ndarray) -> RegionResult:
-    """Build stable connected-region IDs for a palette-index map."""
+    """Build stable connected-region IDs with bbox-local component assignment.
+
+    Older code rebuilt a full-canvas boolean mask for every connected component.
+    On artworks with thousands of regions that dominated runtime. Regionprops
+    already provides each component slice, so assignment now touches only the
+    component's bounding box.
+    """
     if color_id.ndim != 2:
         raise ValueError("color_id must be a 2-D array")
 
@@ -35,8 +41,10 @@ def build_regions(color_id: np.ndarray) -> RegionResult:
     for cid in np.unique(color_id):
         components = label(color_id == cid, connectivity=1)
         for prop in regionprops(components):
-            mask = components == prop.label
-            region_map[mask] = next_id
+            sl = prop.slice
+            component_view = components[sl]
+            region_view = region_map[sl]
+            region_view[component_view == prop.label] = next_id
             regions.append(
                 RegionInfo(
                     region_id=next_id,
@@ -57,21 +65,37 @@ def build_regions(color_id: np.ndarray) -> RegionResult:
 
 
 def build_adjacency(region_id: np.ndarray) -> dict[int, set[int]]:
-    """Return 4-neighbour region adjacency without duplicate edges."""
+    """Return 4-neighbour adjacency using vectorized unique region pairs."""
     ids = np.unique(region_id)
     graph = {int(rid): set() for rid in ids if rid >= 0}
-    pairs = []
+    edge_batches: list[np.ndarray] = []
+
     if region_id.shape[1] > 1:
-        pairs.append((region_id[:, :-1], region_id[:, 1:]))
+        left = region_id[:, :-1]
+        right = region_id[:, 1:]
+        changed = (left != right) & (left >= 0) & (right >= 0)
+        if np.any(changed):
+            batch = np.stack((left[changed], right[changed]), axis=1).astype(np.int32, copy=False)
+            batch.sort(axis=1)
+            edge_batches.append(np.unique(batch, axis=0))
+
     if region_id.shape[0] > 1:
-        pairs.append((region_id[:-1, :], region_id[1:, :]))
-    for a, b in pairs:
-        changed = a != b
-        for left, right in zip(a[changed].ravel(), b[changed].ravel(), strict=False):
-            left_i, right_i = int(left), int(right)
-            if left_i >= 0 and right_i >= 0:
-                graph[left_i].add(right_i)
-                graph[right_i].add(left_i)
+        top = region_id[:-1, :]
+        bottom = region_id[1:, :]
+        changed = (top != bottom) & (top >= 0) & (bottom >= 0)
+        if np.any(changed):
+            batch = np.stack((top[changed], bottom[changed]), axis=1).astype(np.int32, copy=False)
+            batch.sort(axis=1)
+            edge_batches.append(np.unique(batch, axis=0))
+
+    if edge_batches:
+        edges = np.unique(np.concatenate(edge_batches, axis=0), axis=0)
+        for left, right in edges:
+            left_i = int(left)
+            right_i = int(right)
+            graph[left_i].add(right_i)
+            graph[right_i].add(left_i)
+
     return graph
 
 
@@ -84,8 +108,8 @@ def merge_small_regions(
 ) -> np.ndarray:
     """Merge small connected fragments into the best touching neighbour.
 
-    The score prefers long shared borders first and smaller RGB distance second.
-    This preserves subject structure better than a global majority filter.
+    This legacy helper is retained for compatibility. The production pipeline uses
+    the structure-aware merger in ``segmentation_quality``.
     """
     if min_area < 1:
         raise ValueError("min_area must be >= 1")
@@ -99,7 +123,13 @@ def merge_small_regions(
             break
         changed = False
         for region in sorted(small, key=lambda r: r.area):
-            mask = rr.region_id == region.region_id
+            min_row, min_col, max_row, max_col = region.bbox
+            y0 = max(0, min_row - 1)
+            x0 = max(0, min_col - 1)
+            y1 = min(work.shape[0], max_row + 1)
+            x1 = min(work.shape[1], max_col + 1)
+            local_region_map = rr.region_id[y0:y1, x0:x1]
+            mask = local_region_map == region.region_id
             neighbours = rr.adjacency.get(region.region_id, set())
             if not neighbours:
                 continue
@@ -107,8 +137,8 @@ def merge_small_regions(
             ys, xs = np.nonzero(mask)
             for y, x in zip(ys, xs, strict=False):
                 for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-                    if 0 <= ny < work.shape[0] and 0 <= nx < work.shape[1]:
-                        rid = int(rr.region_id[ny, nx])
+                    if 0 <= ny < local_region_map.shape[0] and 0 <= nx < local_region_map.shape[1]:
+                        rid = int(local_region_map[ny, nx])
                         if rid in border_scores:
                             border_scores[rid] += 1
             src_rgb = palette_rgb[region.color_id].astype(np.float32)
@@ -121,7 +151,8 @@ def merge_small_regions(
                 ranked.append((score, neighbour.color_id))
             if ranked:
                 target_color = max(ranked, key=lambda item: item[0])[1]
-                work[mask] = target_color
+                local_work = work[y0:y1, x0:x1]
+                local_work[mask] = target_color
                 changed = True
         if not changed:
             break
