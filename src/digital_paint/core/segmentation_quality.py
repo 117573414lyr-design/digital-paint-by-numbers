@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 from scipy.ndimage import gaussian_filter, sobel
@@ -27,7 +28,6 @@ class RegionStructure:
 
 
 def edge_strength_map(image_rgb: np.ndarray, sigma: float = 0.8) -> np.ndarray:
-    """Return normalized edge strength for structure-aware fragment decisions."""
     if image_rgb.ndim != 3 or image_rgb.shape[2] != 3:
         raise ValueError("image_rgb must have shape (H, W, 3)")
     gray = rgb2gray(image_rgb.astype(np.float32) / 255.0)
@@ -51,7 +51,6 @@ def analyze_region_structure(
     protect_mean_gradient: float = 0.20,
     protect_edge_fraction: float = 0.30,
 ) -> dict[int, RegionStructure]:
-    """Vectorized structure statistics for all regions in one pass."""
     if region_id.shape != edge_strength.shape:
         raise ValueError("region_id and edge_strength must have matching shapes")
     if not regions:
@@ -66,7 +65,6 @@ def analyze_region_structure(
     counts = np.bincount(ids, minlength=max_id + 1).astype(np.float64)
     sums = np.bincount(ids, weights=values, minlength=max_id + 1)
     edge_counts = np.bincount(ids, weights=(values >= edge_threshold), minlength=max_id + 1)
-
     maxima = np.zeros(max_id + 1, dtype=np.float64)
     np.maximum.at(maxima, ids, values)
 
@@ -100,7 +98,6 @@ def _region_slice(region: RegionInfo, shape: tuple[int, int], padding: int = 1) 
 
 
 def _shared_border_counts(region_map: np.ndarray, region: RegionInfo, neighbours: set[int]) -> dict[int, int]:
-    """Count touching borders inside the region bounding box instead of rescanning the full image."""
     scores = {rid: 0 for rid in neighbours}
     if not scores:
         return scores
@@ -110,7 +107,6 @@ def _shared_border_counts(region_map: np.ndarray, region: RegionInfo, neighbours
     if not np.any(mask):
         return scores
 
-    # Compare the selected region with four shifted neighbours using array operations.
     pairs = (
         (mask[1:, :], local[:-1, :]),
         (mask[:-1, :], local[1:, :]),
@@ -129,6 +125,14 @@ def _shared_border_counts(region_map: np.ndarray, region: RegionInfo, neighbours
     return scores
 
 
+def _palette_delta_e_matrix(palette_rgb: np.ndarray) -> np.ndarray:
+    """Precompute CIEDE2000 distance between every palette pair once."""
+    palette_lab = rgb2lab((palette_rgb.astype(np.float32) / 255.0)[None, :, :])[0]
+    left = palette_lab[:, None, :]
+    right = palette_lab[None, :, :]
+    return deltaE_ciede2000(left, right).astype(np.float32)
+
+
 def merge_small_regions_structure_aware(
     color_id: np.ndarray,
     palette_rgb: np.ndarray,
@@ -138,12 +142,17 @@ def merge_small_regions_structure_aware(
     hard_min_area: int = 8,
     max_passes: int = 5,
     weights: MergeWeights = MergeWeights(),
+    progress_callback: Callable[[int, int, int], None] | None = None,
+    cancel_check: Callable[[], None] | None = None,
 ) -> np.ndarray:
-    """Merge fragments using color, adjacency and source-image structure.
+    """Merge fragments while protecting source structure.
 
-    The implementation keeps the existing production scoring rules but avoids
-    repeated whole-canvas scans for every fragment, which is the dominant cost
-    on detailed images with many connected regions.
+    Performance notes:
+    - region statistics are vectorized;
+    - border counts are restricted to each region bbox;
+    - CIEDE2000 palette distances are precomputed once instead of recalculated
+      for every candidate/neighbour pair;
+    - callers can receive per-pass progress and cancellation checks.
     """
     if min_area < 1 or hard_min_area < 1 or hard_min_area > min_area:
         raise ValueError("require 1 <= hard_min_area <= min_area")
@@ -151,19 +160,27 @@ def merge_small_regions_structure_aware(
         raise ValueError("color_id and image_rgb dimensions must match")
 
     work = color_id.astype(np.int32, copy=True)
+    if cancel_check is not None:
+        cancel_check()
     edge_map = edge_strength_map(image_rgb)
-    palette_lab = rgb2lab((palette_rgb.astype(np.float32) / 255.0)[None, :, :])[0]
+    delta_e_matrix = _palette_delta_e_matrix(palette_rgb)
 
-    for _ in range(max_passes):
+    for pass_index in range(max_passes):
+        if cancel_check is not None:
+            cancel_check()
         rr = build_regions(work)
         by_id = {r.region_id: r for r in rr.regions}
         structures = analyze_region_structure(rr.region_id, rr.regions, edge_map)
         candidates = [r for r in rr.regions if r.area < min_area]
+        if progress_callback is not None:
+            progress_callback(pass_index + 1, max_passes, len(candidates))
         if not candidates:
             break
 
         changed = False
-        for region in sorted(candidates, key=lambda r: r.area):
+        for candidate_index, region in enumerate(sorted(candidates, key=lambda r: r.area)):
+            if cancel_check is not None and candidate_index % 128 == 0:
+                cancel_check()
             structure = structures.get(region.region_id)
             if region.area >= hard_min_area and structure and structure.protected:
                 continue
@@ -175,12 +192,7 @@ def merge_small_regions_structure_aware(
             ranked: list[tuple[float, int]] = []
             for neighbour_id, shared in borders.items():
                 neighbour = by_id[neighbour_id]
-                delta_e = float(
-                    deltaE_ciede2000(
-                        palette_lab[region.color_id][None, :],
-                        palette_lab[neighbour.color_id][None, :],
-                    )[0]
-                )
+                delta_e = float(delta_e_matrix[region.color_id, neighbour.color_id])
                 shared_ratio = shared / perimeter_proxy
                 color_similarity = 1.0 / (1.0 + delta_e)
                 area_bonus = np.log1p(neighbour.area) / 10.0
