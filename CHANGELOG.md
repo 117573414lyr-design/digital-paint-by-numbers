@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.70.0 - 2026-08-21
+
+### V61-V70 large-image performance milestone
+
+- Added a cancellable production runtime with explicit `CancellationToken` / `PipelineCancelled` behavior between expensive stages.
+- Added deterministic disk-backed array caching for structure-optimization stages so repeated runs can reuse valid intermediate results.
+- Added working-set memory planning before production starts, with automatic recommendation of tiled mode when the estimated footprint exceeds the configured budget.
+- Added deterministic tile planning with bounded tile sizes and overlap support for future local recomputation and large-image processing.
+- Integrated cache hits, memory plan and cancellation checks into the main production pipeline rather than leaving them as isolated utilities.
+- Added a production performance gate based on seconds per megapixel and large-image memory strategy.
+- Locked benchmark targets at 12MP / 24MP / 48MP for CI and manual regression runs.
+- Added automated tests for cancellation, tile coverage, cache reuse, memory planning and performance-gate behavior.
+
+> V70 is the current code milestone. Full tiled execution for every segmentation/vector stage and Windows hardware benchmark numbers still require integration/real-device validation before V100 release gating can pass.
+
 ## 0.60.0 - 2026-08-21
 
 ### V41-V60 vector production and located QC milestone
