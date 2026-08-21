@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.80.0 - 2026-08-21
+
+### V71-V80 project editing and localized recompute milestone
+
+- Added deterministic edit sessions with undo/redo state history.
+- Added manual whole-region recolor, multi-region merge and mask-based region split operations.
+- Added manual number movement with a hard rule that a number must remain inside its own current `region_id`.
+- Added dirty bounding-box tracking for edits so redraw/recompute paths can operate on affected regions instead of blindly refreshing the full canvas.
+- Added project-editor persistence that writes edit revisions, snapshots and journal records into the existing project store.
+- Added save/restore-compatible edited `color_id` persistence.
+- Added safe manual vector path overrides with editable anchor movement and self-intersection rejection.
+- Added regression tests for recolor, merge, split, label movement, undo/redo, project persistence and path-edit validity.
+
+> V80 is the current code milestone. GUI tools for directly drawing split masks and manipulating vector anchors on-canvas still need UI integration before V100 release gating can pass.
+
 ## 0.70.0 - 2026-08-21
 
 ### V61-V70 large-image performance milestone
