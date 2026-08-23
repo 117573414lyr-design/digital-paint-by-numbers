@@ -9,6 +9,7 @@ import numpy as np
 from digital_paint.core.editing import EditSession, EditState
 from digital_paint.core.labels import LabelPlacement
 from digital_paint.core.project_store import ProjectMeta, ProjectStore
+from digital_paint.core.regions import build_regions
 
 
 class ProjectEditor:
@@ -26,9 +27,13 @@ class ProjectEditor:
         arrays = store.load_arrays()
         if "color_id" not in arrays:
             raise ValueError("project does not contain color_id")
+        region_id = arrays.get("region_id")
+        if region_id is None:
+            region_id = build_regions(arrays["color_id"]).region_id
         state = EditState(
             color_id=arrays["color_id"].astype(np.int32, copy=True),
             labels=list(labels or []),
+            region_id=region_id.astype(np.int32, copy=True),
             revision=meta.revision,
         )
         return cls(store, meta, EditSession(state))
@@ -49,7 +54,11 @@ class ProjectEditor:
     def save(self, *, snapshot_label: str | None = None, **extra_arrays: np.ndarray) -> None:
         if snapshot_label and self.store.meta_path.exists():
             self.store.snapshot(snapshot_label, self.meta)
-        arrays = {"color_id": self.session.state.color_id, **extra_arrays}
+        arrays = {
+            **extra_arrays,
+            "color_id": self.session.state.color_id,
+            "region_id": self.session.state.region_id,
+        }
         self.store.save(self.meta, **arrays)
         self.store.append_journal(
             "save_edit_state",

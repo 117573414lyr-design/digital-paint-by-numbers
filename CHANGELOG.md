@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Stable region/color identity through editing
+
+- Made `region_id` an explicit part of editable state instead of rebuilding and renumbering it from `color_id` for every operation.
+- Preserve region IDs across recolor and undo/redo, deterministically retain the largest region ID on merge, and allocate a new monotonic ID on split.
+- Persist and restore both `region_id` and `color_id` in project files, with automatic region-map generation for older projects.
+- Validate that every region maps to exactly one color before edits or export-facing persistence.
+- Added regression coverage for stable recolor IDs, deterministic merge/split IDs, invalid mappings, and project round trips.
+
 ## 0.80.0 - 2026-08-21
 
 ### V71-V80 project editing and localized recompute milestone
