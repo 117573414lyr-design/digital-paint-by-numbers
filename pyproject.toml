@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "digital-paint-by-numbers"
+version = "0.1.0"
+description = "Windows digital paint-by-numbers production application"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.0,<3",
+  "Pillow>=11,<13",
+  "PySide6>=6.8,<7",
+  "scikit-learn>=1.6,<2",
+  "scipy>=1.14,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pyinstaller>=6.11,<7", "pytest>=8.3,<10", "pytest-qt>=4.4,<5", "ruff>=0.9,<1"]
+
+[project.scripts]
+dpbn = "app.main:main"
+
+[tool.setuptools.packages.find]
+include = ["app*", "core*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
