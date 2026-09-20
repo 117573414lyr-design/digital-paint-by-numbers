@@ -21,5 +21,4 @@ jobs:
       - name: Verify application import
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -c "from app.main_window import MainWindow; from PySide6.QtWidgets import QApplication; app = QApplication([]); window = MainWindow(); print(window.windowTitle())"
-
+        run: python -c "from app.main_window import MainWindow; from PySide6.QtWidgets import QApplication; app = QApplication([]); window = MainWindow(); assert window.windowTitle()"
